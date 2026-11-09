@@ -16,6 +16,19 @@ NearExpiry/
   README.md
 ```
 
+## 👥 Contributors
+
+This project was developed collaboratively by:
+
+| Name | Role | GitHub |
+|---|---|---|
+| Shubham Kumar | Project Developer | [Shubham](https://github.com/TheShubhamCodes) |
+| Ganguly Kumar | Project Contributor | [Ganguly Kumar](https://github.com/Gangulikumar) |
+| Rajat Kumar | Project Contributor | [Rajat](https://github.com/vu241fa04d29-rajat) |
+
+Special thanks to all contributors for their valuable efforts, ideas, collaboration, and support in building NearExpiry.
+
+
 ## Getting Started
 
 ### 1. Prerequisites
