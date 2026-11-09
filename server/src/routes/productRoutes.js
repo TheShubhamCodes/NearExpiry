@@ -10,6 +10,7 @@ router.use(authenticate);
 // Specific sub-paths before parameterized :id route
 router.get('/categories', productController.getCategories);
 router.get('/lookup/:barcode', productController.lookupBarcode);
+router.post('/upload-image', productController.uploadImage);
 
 // Collection operations
 router.route('/')

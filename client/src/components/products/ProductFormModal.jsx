@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Package, 
   ScanLine, 
@@ -9,13 +9,14 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   RefreshCw,
-  Search
+  Search,
+  Upload
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import { lookupBarcode } from '../../services/api';
+import { lookupBarcode, uploadProductImage } from '../../services/api';
 
 const DEFAULT_CATEGORIES = [
   'Dairy & Eggs',
@@ -71,6 +72,9 @@ export default function ProductFormModal({
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreviewError, setImagePreviewError] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
 
   // Sync initialData when opening in Edit or Create mode
   useEffect(() => {
@@ -88,6 +92,8 @@ export default function ProductFormModal({
       setLookupNotice(null);
       setErrors({});
       setImagePreviewError(false);
+      setUploadError('');
+      setIsUploadingImage(false);
     } else {
       setFormData({
         name: '',
@@ -102,6 +108,8 @@ export default function ProductFormModal({
       setLookupNotice(null);
       setErrors({});
       setImagePreviewError(false);
+      setUploadError('');
+      setIsUploadingImage(false);
     }
   }, [initialData, isOpen]);
 
@@ -173,6 +181,51 @@ export default function ProductFormModal({
     }
     if (field === 'imageUrl') {
       setImagePreviewError(false);
+      setUploadError('');
+    }
+  };
+
+  const handleImageFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError('Please select a valid image file (JPEG, PNG, WEBP, or GIF).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image file must be 5 MB or smaller.');
+      return;
+    }
+
+    setUploadError('');
+    setIsUploadingImage(true);
+
+    try {
+      const dataUri = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read the selected image file.'));
+        reader.readAsDataURL(file);
+      });
+
+      const res = await uploadProductImage(dataUri);
+      if (res?.data?.imageUrl) {
+        setFormData(prev => ({ ...prev, imageUrl: res.data.imageUrl }));
+        setImagePreviewError(false);
+      } else {
+        setUploadError('Image upload did not return a valid URL.');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.friendlyMessage || err.message || 'Image upload failed.';
+      setUploadError(msg);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -231,7 +284,7 @@ export default function ProductFormModal({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingImage}
           >
             Cancel
           </Button>
@@ -239,7 +292,8 @@ export default function ProductFormModal({
             variant="primary"
             size="sm"
             icon={Package}
-            isLoading={isSubmitting}
+            loading={isSubmitting}
+            disabled={isUploadingImage}
             onClick={handleSubmit}
           >
             {isEditMode ? 'Save Changes' : 'Create Product'}
@@ -383,11 +437,11 @@ export default function ProductFormModal({
           />
         </div>
 
-        {/* Product Image URL with Live Thumbnail Preview */}
+        {/* Product Image URL & Cloudinary Upload with Live Thumbnail Preview */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-700">
-              Product Image URL (Optional)
+              Product Image URL or Upload (Optional)
             </label>
             {formData.imageUrl && (
               <span className="text-[10px] text-slate-400">
@@ -395,15 +449,35 @@ export default function ProductFormModal({
               </span>
             )}
           </div>
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-2.5 items-center">
             <div className="flex-1">
               <Input
                 placeholder="https://images.example.com/product.jpg"
                 value={formData.imageUrl}
                 onChange={(e) => handleChange('imageUrl', e.target.value)}
                 icon={ImageIcon}
+                disabled={isUploadingImage}
               />
             </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleImageFileSelect}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              icon={Upload}
+              loading={isUploadingImage}
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload product image via server storage (max 5 MB)"
+            >
+              {isUploadingImage ? 'Uploading...' : 'Upload'}
+            </Button>
             
             {/* Thumbnail Box */}
             <div className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
@@ -419,6 +493,15 @@ export default function ProductFormModal({
               )}
             </div>
           </div>
+          {uploadError && (
+            <p className="text-[11px] text-rose-600 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>{uploadError}</span>
+            </p>
+          )}
+          <p className="text-[11px] text-slate-400">
+            Paste an https:// image URL or upload a JPEG/PNG/WEBP/GIF image (up to 5 MB).
+          </p>
         </div>
 
         {/* Description */}

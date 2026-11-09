@@ -2,10 +2,14 @@
 
 NearExpiry is an inventory and product expiry-date management application for supermarket and grocery store owners.
 
+## Deployment
+
+For full production deployment instructions using **Vercel** (Frontend), **Render** (Backend), and **MongoDB Atlas** (Database), see [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## Tech Stack
 - **Frontend:** React.js, Vite, Tailwind CSS, React Router, Axios, Recharts, Lucide React
-- **Backend:** Node.js, Express.js, Mongoose, JWT, bcryptjs, Zod
-- **Database:** MongoDB (Local or Atlas)
+- **Backend:** Node.js (>=18), Express.js, Mongoose, Helmet, JWT, bcryptjs, Zod, Resend
+- **Database:** MongoDB (Local or MongoDB Atlas)
 
 ## Project Structure
 ```

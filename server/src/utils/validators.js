@@ -131,6 +131,17 @@ const sanitizeBarcode = (val) => {
   return null;
 };
 
+// Helper to validate safe HTTP/HTTPS image URLs
+const isValidImageUrl = (val) => {
+  if (!val || val === '') return true;
+  try {
+    const parsed = new URL(val);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 // Schema for creating a product
 const createProductSchema = z.object({
   name: z.string().trim().min(2, 'Product name must be at least 2 characters').max(200, 'Product name cannot exceed 200 characters'),
@@ -141,7 +152,7 @@ const createProductSchema = z.object({
   ),
   category: z.string().trim().min(1, 'Category is required').max(100, 'Category cannot exceed 100 characters').default('General'),
   description: z.string().trim().max(1000, 'Description cannot exceed 1000 characters').optional().default(''),
-  imageUrl: z.string().trim().max(1000).optional().default(''),
+  imageUrl: z.string().trim().max(1000).refine(isValidImageUrl, 'Image URL must start with http:// or https://').optional().default(''),
   unit: z.enum(productUnits, {
     errorMap: () => ({ message: `Unit must be one of: ${productUnits.join(', ')}` })
   }).default('piece'),
@@ -162,7 +173,7 @@ const updateProductSchema = z.object({
   ),
   category: z.string().trim().min(1, 'Category is required').max(100, 'Category cannot exceed 100 characters').optional(),
   description: z.string().trim().max(1000, 'Description cannot exceed 1000 characters').optional(),
-  imageUrl: z.string().trim().max(1000).optional(),
+  imageUrl: z.string().trim().max(1000).refine(isValidImageUrl, 'Image URL must start with http:// or https://').optional(),
   unit: z.enum(productUnits, {
     errorMap: () => ({ message: `Unit must be one of: ${productUnits.join(', ')}` })
   }).optional(),

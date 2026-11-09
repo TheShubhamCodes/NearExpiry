@@ -25,8 +25,18 @@ const checkTransactionSupport = async () => {
       await session.abortTransaction();
       _transactionsSupported = true;
     } catch (err) {
-      // Standalone mongod fails with error code 20 / IllegalOperation
-      _transactionsSupported = false;
+      // Only treat standalone topology rejections as permanent non-transactional mode
+      const isStandaloneError =
+        err.code === 20 ||
+        err.codeName === 'IllegalOperation' ||
+        /Transaction numbers are only allowed/i.test(err.message || '');
+
+      if (isStandaloneError) {
+        _transactionsSupported = false;
+      } else {
+        // Transient error: do not permanently cache false
+        return false;
+      }
     } finally {
       await session.endSession();
     }

@@ -5,6 +5,7 @@ const { getCalendarDateParts } = require('../utils/expiryUtils');
 
 let expiryCheckJob = null;
 let digestCheckJob = null;
+let startupCheckTimer = null;
 let isCheckRunning = false;
 
 /**
@@ -72,7 +73,7 @@ const startScheduler = () => {
   });
 
   // 3. Initial startup check with 5-second delay to ensure database is connected
-  setTimeout(async () => {
+  startupCheckTimer = setTimeout(async () => {
     try {
       console.log('[Scheduler] Running initial startup expiry check...');
       await notificationService.runExpiryAndInventoryChecks();
@@ -80,6 +81,9 @@ const startScheduler = () => {
       console.log('[Scheduler] Initial check skipped (DB may still be initializing or store empty).');
     }
   }, 5000);
+  if (typeof startupCheckTimer.unref === 'function') {
+    startupCheckTimer.unref();
+  }
 
   console.log('[Scheduler] Background jobs active.');
 };
@@ -88,6 +92,10 @@ const startScheduler = () => {
  * Stop background scheduler (for testing or clean server shutdown)
  */
 const stopScheduler = () => {
+  if (startupCheckTimer) {
+    clearTimeout(startupCheckTimer);
+    startupCheckTimer = null;
+  }
   if (expiryCheckJob) {
     expiryCheckJob.stop();
     expiryCheckJob = null;

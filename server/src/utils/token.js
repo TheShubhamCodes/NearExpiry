@@ -14,33 +14,39 @@ const generateToken = (user) => {
   );
 };
 
-const sendTokenCookie = (res, token) => {
-  const isProduction = nodeEnv === 'production';
-  const cookieOptions = {
+const getCookieOptions = () => {
+  const currentEnv = process.env.NODE_ENV || nodeEnv;
+  const isProd = currentEnv === 'production';
+  const envSameSite = (process.env.COOKIE_SAME_SITE || '').trim().toLowerCase();
+  const sameSite = ['strict', 'lax', 'none'].includes(envSameSite)
+    ? envSameSite
+    : (isProd ? 'none' : 'lax');
+
+  return {
     httpOnly: true,
-    secure: isProduction, // false in dev so localhost HTTP works
-    sameSite: isProduction ? 'strict' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    secure: isProd || sameSite === 'none', // SameSite=None requires Secure=true (HTTPS)
+    sameSite,
     path: '/'
   };
+};
 
-  res.cookie('token', token, cookieOptions);
+const sendTokenCookie = (res, token) => {
+  res.cookie('token', token, {
+    ...getCookieOptions(),
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
 };
 
 const clearTokenCookie = (res) => {
-  const isProduction = nodeEnv === 'production';
   res.cookie('token', '', {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
-    expires: new Date(0),
-    path: '/'
+    ...getCookieOptions(),
+    expires: new Date(0)
   });
 };
 
 module.exports = {
   generateToken,
+  getCookieOptions,
   sendTokenCookie,
   clearTokenCookie
 };
-

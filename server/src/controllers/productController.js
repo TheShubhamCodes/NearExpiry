@@ -1,4 +1,5 @@
 const productService = require('../services/productService');
+const cloudinaryService = require('../services/cloudinaryService');
 const {
   createProductSchema,
   updateProductSchema,
@@ -144,6 +145,22 @@ const getCategories = async (req, res, next) => {
   }
 };
 
+/**
+ * Upload product image via backend Cloudinary service
+ */
+const uploadImage = async (req, res, next) => {
+  try {
+    const result = await cloudinaryService.uploadProductImage(req.body?.image);
+    return res.status(200).json({
+      success: true,
+      message: 'Product image uploaded successfully.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createProduct,
   getProducts,
@@ -151,6 +168,7 @@ module.exports = {
   lookupBarcode,
   updateProduct,
   deleteProduct,
-  getCategories
+  getCategories,
+  uploadImage
 };
 

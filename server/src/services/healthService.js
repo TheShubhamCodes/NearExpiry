@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { isProduction } = require('../config/env');
 
 const getDatabaseStatus = () => {
   const states = {
@@ -10,11 +11,17 @@ const getDatabaseStatus = () => {
   };
 
   const stateCode = mongoose.connection.readyState;
+  const prod = process.env.NODE_ENV ? process.env.NODE_ENV === 'production' : isProduction;
+
   return {
     state: states[stateCode] || 'unknown',
     connected: stateCode === 1,
-    host: mongoose.connection.host || null,
-    name: mongoose.connection.name || null
+    ...(prod
+      ? {}
+      : {
+          host: mongoose.connection.host || null,
+          name: mongoose.connection.name || null
+        })
   };
 };
 

@@ -1,24 +1,37 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ''
-  ? import.meta.env.VITE_API_URL
-  : '/api';
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+const API_BASE_URL = rawApiUrl || '/api';
+
+if (!import.meta.env.DEV && !rawApiUrl) {
+  console.error(
+    '[NearExpiry Config] VITE_API_URL is not configured for production. Set VITE_API_URL (e.g., https://your-backend.onrender.com/api) in your deployment environment variables.'
+  );
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000, // Accommodates cloud cold starts (e.g. Render free tier wakeup)
   withCredentials: true, // Send and receive HTTP-only cookies
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Response interceptor for transparent and helpful network errors
+// Response interceptor for transparent and environment-aware network errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || !error.response) {
-      error.friendlyMessage = 'Unable to connect to the NearExpiry backend server. Please verify that the server is running on port 5000 and MongoDB is connected.';
+    if (error.code === 'ECONNABORTED') {
+      error.friendlyMessage = import.meta.env.DEV
+        ? 'Request timed out waiting for the local backend server.'
+        : 'The server is taking longer than expected to respond (it may be waking up from sleep). Please try again in a few seconds.';
+    } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || !error.response) {
+      error.friendlyMessage = import.meta.env.DEV
+        ? 'Unable to connect to the NearExpiry backend server. Please verify that the server is running on port 5000 and MongoDB is connected.'
+        : 'Unable to reach the NearExpiry server. Please check your internet connection or wait a moment if the server is waking up.';
+    } else if (error.response?.data?.message) {
+      error.friendlyMessage = error.response.data.message;
     }
     return Promise.reject(error);
   }
@@ -131,6 +144,11 @@ export const lookupBarcode = async (barcode) => {
 
 export const getProductCategories = async () => {
   const response = await api.get('/products/categories');
+  return response.data;
+};
+
+export const uploadProductImage = async (imageDataUri) => {
+  const response = await api.post('/products/upload-image', { image: imageDataUri }, { timeout: 35000 });
   return response.data;
 };
 

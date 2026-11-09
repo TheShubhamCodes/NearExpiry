@@ -1,7 +1,11 @@
-const { clientUrl, nodeEnv } = require('../config/env');
+const {
+  nodeEnv,
+  allowedClientOrigins,
+  normalizeOrigin,
+  parseAllowedOrigins
+} = require('../config/env');
 
-const allowedOrigins = new Set([
-  clientUrl,
+const DEV_LOCAL_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5000',
@@ -10,23 +14,40 @@ const allowedOrigins = new Set([
 
 /**
  * Checks whether an origin is authorized.
- * Permitted:
- * 1. Explicitly configured clientUrl
- * 2. Localhost & Loopback on any port (e.g. dev servers, tests)
- * 3. RFC1918 private LAN IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+ * Production: strictly permits explicitly configured CLIENT_URL / CORS_ORIGINS only.
+ * Development: also permits localhost, loopback, and private RFC1918 LAN IPs.
  */
 const isAllowedOrigin = (origin) => {
   if (!origin) return true; // Direct non-browser requests or same-origin
-  if (allowedOrigins.has(origin)) return true;
+
+  const normalized = normalizeOrigin(origin);
+  const currentEnv = process.env.NODE_ENV || nodeEnv;
+  const isProd = currentEnv === 'production';
+
+  const configuredOrigins = new Set([
+    ...allowedClientOrigins,
+    ...parseAllowedOrigins(process.env.CLIENT_URL || '', process.env.CORS_ORIGINS || '', isProd)
+  ]);
+
+  if (configuredOrigins.has(normalized)) {
+    return true;
+  }
+
+  // In production, do NOT allow arbitrary localhost or LAN IP origins
+  if (isProd) {
+    return false;
+  }
+
+  if (DEV_LOCAL_ORIGINS.has(normalized)) {
+    return true;
+  }
 
   try {
-    const url = new URL(origin);
+    const url = new URL(normalized);
     const host = url.hostname;
-    // Allow localhost, 127.0.0.1, IPv6 loopback
     if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]') {
       return true;
     }
-    // Allow private LAN IPv4 ranges
     if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) {
       return true;
     }
@@ -60,7 +81,6 @@ const csrfProtection = (req, res, next) => {
     try {
       requestOrigin = new URL(refererHeader).origin;
     } catch (e) {
-      // Invalid referer URL format
       requestOrigin = null;
     }
   }
@@ -74,11 +94,8 @@ const csrfProtection = (req, res, next) => {
       });
     }
   } else {
-    // If request has cookie authentication but neither Origin nor Referer is provided
-    // in a browser context, reject cross-site forged requests
+    // Reject cross-site cookie-bearing browser requests lacking Origin/Referer
     if (req.cookies && req.cookies.token && req.headers['user-agent']) {
-      // Standard automated API clients without cookies can proceed to authMiddleware
-      // But cookie-bearing requests without origin/referer from browsers are blocked
       const secFetchSite = req.headers['sec-fetch-site'];
       if (secFetchSite && secFetchSite === 'cross-site') {
         return res.status(403).json({
@@ -94,4 +111,3 @@ const csrfProtection = (req, res, next) => {
 
 module.exports = csrfProtection;
 module.exports.isAllowedOrigin = isAllowedOrigin;
-

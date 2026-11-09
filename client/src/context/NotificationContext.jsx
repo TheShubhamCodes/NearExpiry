@@ -102,7 +102,7 @@ export function NotificationProvider({ children }) {
         // Show test greeting notification
         new Notification('NearExpiry Alerts Enabled', {
           body: 'You will receive desktop alerts for critical product expirations and low inventory.',
-          icon: '/favicon.ico'
+          icon: '/favicon.svg'
         });
       }
 
@@ -122,7 +122,7 @@ export function NotificationProvider({ children }) {
     ) {
       try {
         return new Notification(title, {
-          icon: '/favicon.ico',
+          icon: '/favicon.svg',
           ...options
         });
       } catch (e) {

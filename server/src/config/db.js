@@ -1,19 +1,27 @@
 const mongoose = require('mongoose');
 const { mongodbUri } = require('./env');
 
+const redactMongoUri = (msg = '') => {
+  return String(msg).replace(/:\/\/[^@\s]+@/g, '://***:***@');
+};
+
 const connectDB = async () => {
+  if (!mongodbUri) {
+    throw new Error('MONGODB_URI is not configured.');
+  }
+
   try {
     const conn = await mongoose.connect(mongodbUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
       autoIndex: true
     });
 
     console.log(`[Database] MongoDB Connected successfully: ${conn.connection.host}/${conn.connection.name}`);
     return conn;
   } catch (error) {
-    console.error(`[Database] MongoDB Connection Error: ${error.message}`);
-    // In development, do not crash process immediately so server health checks can still report DB status
-    return null;
+    console.error(`[Database] MongoDB Connection Error: ${redactMongoUri(error.message)}`);
+    throw error;
   }
 };
 
@@ -25,5 +33,9 @@ mongoose.connection.on('reconnected', () => {
   console.log('[Database] MongoDB reconnected');
 });
 
-module.exports = connectDB;
+mongoose.connection.on('error', (err) => {
+  console.error(`[Database] MongoDB runtime error: ${redactMongoUri(err?.message || 'Unknown error')}`);
+});
 
+connectDB.redactMongoUri = redactMongoUri;
+module.exports = connectDB;
